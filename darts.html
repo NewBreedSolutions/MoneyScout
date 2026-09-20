@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080d19">
+<title>New Breed Darts</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080d19;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:700px;margin:auto;padding:15px}
+h1{font-size:24px;margin:5px 0}
+.sub{color:#94a3b8;font-size:12px;margin-bottom:12px}
+nav{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px}
+button{border:0;border-radius:11px;background:#202b42;color:white;padding:12px 6px;font-weight:bold}
+button.active{background:#38bdf8;color:#06111b}
+.card{background:#131b2c;border:1px solid #293751;border-radius:16px;padding:15px;margin:10px 0}
+.center{text-align:center}
+.muted{color:#94a3b8}
+.big{font-size:58px;font-weight:900}
+.target{font-size:34px;font-weight:900;color:#38bdf8;margin:8px}
+.hint{background:#0d1728;border-left:3px solid #38bdf8;padding:11px;border-radius:8px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+input,select{width:100%;padding:12px;background:#0b1221;color:white;border:1px solid #3a4965;border-radius:9px;font-size:16px}
+label{display:block;color:#94a3b8;font-size:12px;margin:8px 0 4px}
+.hidden{display:none}
+.good{background:#123a31}
+.bad{background:#42202c}
+.row{display:flex;justify-content:space-between;border-bottom:1px solid #293751;padding:9px 0}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<h1>🎯 NEW BREED DARTS</h1>
+<div class="sub">Bullshooter 501 Open-Out • Strategy Assistant • v2</div>
+
+<nav>
+<button onclick="tab('match')" id="bmatch" class="active">501</button>
+<button onclick="tab('strategy')" id="bstrategy">STRATEGY</button>
+<button onclick="tab('cricket')" id="bcricket">CRICKET</button>
+<button onclick="tab('stats')" id="bstats">STATS</button>
+</nav>
+
+<section id="match"></section>
+<section id="strategy" class="hidden"></section>
+<section id="cricket" class="hidden"></section>
+<section id="stats" class="hidden"></section>
+
+</div>
+
+<script>
+
+const KEY="newbreed_darts_v2";
+
+let data=JSON.parse(localStorage.getItem(KEY)||JSON.stringify({
+ playerAvg:23,
+ cricketAvg:2.4,
+ visits:[],
+ legs:[],
+ cricket:[]
+}));
+
+function save(){
+ localStorage.setItem(KEY,JSON.stringify(data));
+}
+
+let game={
+ you:501,
+ opponent:501,
+ history:[]
+};
+
+function tab(name){
+
+ document.querySelectorAll("section").forEach(x=>{
+   x.classList.add("hidden");
+ });
+
+ document.getElementById(name).classList.remove("hidden");
+
+ document.querySelectorAll("nav button").forEach(x=>{
+   x.classList.remove("active");
+ });
+
+ document.getElementById("b"+name).classList.add("active");
+
+ if(name==="match")renderMatch();
+ if(name==="strategy")renderStrategy();
+ if(name==="cricket")renderCricket();
+ if(name==="stats")renderStats();
+}
+
+
+/* -----------------------------
+   OPEN OUT STRATEGY
+----------------------------- */
+
+function route(n){
+
+ if(n<=0)return "OUT";
+
+ if(n===170)return "T20 → T20 → BULL";
+
+ if(n===50)return "BULL";
+
+ if(n<=20)return String(n);
+
+ /*
+ Open-out means you do NOT have to finish
+ on a double. Prefer simple, high-percentage
+ routes.
+ */
+
+ if(n<=60){
+
+   if(n-20>=0 && n-20<=20)
+     return "20 → "+(n-20);
+
+   if(n%3===0 && n/3<=20)
+     return "T"+(n/3);
+
+   return String(n);
+ }
+
+ if(n<=120){
+
+   let r=n-60;
+
+   if(r>=0 && r<=60)
+     return "T20 → "+r;
+ }
+
+ if(n<=170){
+
+   let first=Math.floor(n/3);
+
+   if(first>20)first=20;
+
+   let remainder=n-first*3;
+
+   return "T"+first+" → "+remainder;
+ }
+
+ return "Score down first";
+}
+
+
+/* -----------------------------
+   MATCH
+----------------------------- */
+
+function renderMatch(){
+
+ document.getElementById("match").innerHTML=`
+
+ <div class="card center">
+
+ <div class="muted">YOUR SCORE</div>
+
+ <div class="big">${game.you}</div>
+
+ <div class="muted">OPPONENT</div>
+
+ <div style="font-size:28px;font-weight:900">
+ ${game.opponent}
+ </div>
+
+ <div class="hint" style="margin-top:12px">
+
+ <b>THROW:</b>
+
+ <div class="target">${route(game.you)}</div>
+
+ Open-out strategy
+
+ </div>
+
+ </div>
+
+
+ <div class="card">
+
+ <b>ENTER 3-DART VISIT</b>
+
+ <div class="grid" style="margin-top:10px">
+
+ ${[0,10,15,18,20,25,30,35,40,45,50,51,54,57,60].map(x=>
+
+ `<button onclick="visit(${x})">${x}</button>`
+
+ ).join("")}
+
+ </div>
+
+ <label>Custom visit</label>
+
+ <div class="grid2">
+
+ <input id="customScore" type="number" min="0" max="180">
+
+ <button onclick="customVisit()">ENTER</button>
+
+ </div>
+
+ </div>
+
+
+ <div class="card">
+
+ <b>OPPONENT SCORE</b>
+
+ <label>Update opponent's remaining score</label>
+
+ <div class="grid2">
+
+ <input id="opponentScore" type="number" value="${game.opponent}">
+
+ <button onclick="updateOpponent()">UPDATE</button>
+
+ </div>
+
+ </div>
+
+
+ <div class="card">
+
+ <div class="grid2">
+
+ <button class="good" onclick="winLeg()">I WON</button>
+
+ <button class="bad" onclick="undo()">UNDO</button>
+
+ </div>
+
+ <button style="width:100%;margin-top:8px" onclick="newLeg()">
+ NEW LEG
+ </button>
+
+ </div>
+
+ `;
+}
+
+
+function visit(score){
+
+ let remaining=game.you-score;
+
+ if(remaining<0){
+   alert("That score is too high.");
+   return;
+ }
+
+ game.history.push({
+   from:game.you,
+   score:score
+ });
+
+ game.you=remaining;
+
+ data.visits.push(score);
+
+ save();
+
+ if(game.you===0){
+
+   winLeg();
+   return;
+
+ }
+
+ renderMatch();
+}
+
+
+function customVisit(){
+
+ let score=Number(document.getElementById("customScore").value);
+
+ if(score>=0 && score<=180)
+   visit(score);
+
+}
+
+
+function updateOpponent(){
+
+ let n=Number(document.getElementById("opponentScore").value);
+
+ if(n>=0)
+   game.opponent=n;
+
+ renderMatch();
+}
+
+
+function undo(){
+
+ if(game.history.length===0)return;
+
+ let last=game.history.pop();
+
+ game.you=last.from;
+
+ data.visits.pop();
+
+ save();
+
+ renderMatch();
+}
+
+
+function newLeg(){
+
+ game={
+   you:501,
+   opponent:game.opponent,
+   history:[]
+ };
+
+ renderMatch();
+}
+
+
+function winLeg(){
+
+ data.legs.push({
+   visits:game.history.length,
+   points:game.history.reduce((a,b)=>a+b.score,0),
+   date:new Date().toISOString()
+ });
+
+ save();
+
+ alert("LEG RECORDED!");
+
+ newLeg();
+
+}
+
+
+/* -----------------------------
+   STRATEGY
+----------------------------- */
+
+function renderStrategy(){
+
+ document.getElementById("strategy").innerHTML=`
+
+ <div class="card">
+
+ <h3>LIVE STRATEGY ANALYZER</h3>
+
+ <label>Your remaining</label>
+
+ <input id="sYou" type="number" value="${game.you}">
+
+ <label>Opponent remaining</label>
+
+ <input id="sOpp" type="number" value="${game.opponent}">
+
+ <label>Darts remaining</label>
+
+ <select id="sDarts">
+ <option>3</option>
+ <option>2</option>
+ <option>1</option>
+ </select>
+
+ <button style="width:100%;margin-top:10px"
+ onclick="analyze()">
+
+ ANALYZE POSITION
+
+ </button>
+
+ <div id="analysis" class="hint" style="margin-top:10px">
+
+ Enter the position and tap Analyze.
+
+ </div>
+
+ </div>
+
+ <div class="card">
+
+ <b>STRATEGY RULES</b>
+
+ <div class="row">
+ <span>High score</span>
+ <b>Build a clean leave</b>
+ </div>
+
+ <div class="row">
+ <span>60 or less</span>
+ <b>Look for direct finish</b>
+ </div>
+
+ <div class="row">
+ <span>Opponent ≤100</span>
+ <b>Prioritize your finish</b>
+ </div>
+
+ <div class="row">
+ <span>Opponent high</span>
+ <b>Favor consistent scoring</b>
+ </div>
+
+ </div>
+
+ `;
+}
+
+
+function analyze(){
+
+ let you=Number(document.getElementById("sYou").value);
+
+ let opp=Number(document.getElementById("sOpp").value);
+
+ let darts=Number(document.getElementById("sDarts").value);
+
+ let recommendation=route(you);
+
+ let pressure="";
+
+ if(opp<=60)
+   pressure="Your opponent is already in a finishing range. Prioritize getting yourself to a clean finish.";
+
+ else if(opp<=100)
+   pressure="Your opponent is approaching a finish. Avoid unnecessary low-percentage routes.";
+
+ else
+   pressure="You have more room. Focus on consistent scoring and creating an easy leave.";
+
+ document.getElementById("analysis").innerHTML=`
+
+ <b>THROW:</b>
+
+ <div class="target">${recommendation}</div>
+
+ ${darts} dart(s) remaining.
+
+ <br><br>
+
+ ${pressure}
+
+ `;
+
+}
+
+
+/* -----------------------------
+   CRICKET
+----------------------------- */
+
+function renderCricket(){
+
+ document.getElementById("cricket").innerHTML=`
+
+ <div class="card center">
+
+ <div class="muted">CRICKET BASELINE</div>
+
+ <div class="big">${data.cricketAvg}</div>
+
+ </div>
+
+
+ <div class="card">
+
+ <b>CRICKET PRACTICE</b>
+
+ <p class="muted">
+ Your current focus:
+ 20 → 19 → 18 → 17 → Bull
+ </p>
+
+ <div class="grid">
+
+ ${[20,19,18,17,16,15,25].map(n=>
+
+ `<button onclick="recordCricket(${n})">${n}</button>`
+
+ ).join("")}
+
+ </div>
+
+ <div id="cricketMessage" class="hint" style="margin-top:10px">
+
+ Tap the number you practiced.
+
+ </div>
+
+ </div>
+
+
+ <div class="card">
+
+ <b>CRICKET DECISION</b>
+
+ <label>Your marks</label>
+
+ <select id="myMarks">
+ <option value="0">0</option>
+ <option value="1">1</option>
+ <option value="2">2</option>
+ <option value="3">Closed</option>
+ </select>
+
+ <label>Opponent marks</label>
+
+ <select id="oppMarks">
+ <option value="0">0</option>
+ <option value="1">1</option>
+ <option value="2">2</option>
+ <option value="3">Closed</option>
+ </select>
+
+ <button style="width:100%;margin-top:10px"
+ onclick="cricketAdvice()">
+
+ WHAT SHOULD I DO?
+
+ </button>
+
+ <div id="cricketAdvice" class="hint" style="margin-top:10px"></div>
+
+ </div>
+
+ `;
+}
+
+
+function recordCricket(number){
+
+ data.cricket.push(number);
+
+ save();
+
+ document.getElementById("cricketMessage").textContent=
+ "Recorded practice on "+number+". Keep the throw smooth and grouped.";
+
+}
+
+
+function cricketAdvice(){
+
+ let mine=Number(document.getElementById("myMarks").value);
+
+ let opp=Number(document.getElementById("oppMarks").value);
+
+ let answer="";
+
+ if(mine===3 && opp<3){
+
+   answer=
+   "You are closed. Attack a number the opponent has not closed, starting with 20 when available.";
+
+ }
+
+ else if(mine<3 && opp>=2){
+
+   answer=
+   "Opponent is close to closing. Consider closing their dangerous number before chasing points.";
+
+ }
+
+ else if(mine<3){
+
+   answer=
+   "Prioritize your highest-value open number. Start with 20 if your throw is comfortable.";
+
+ }
+
+ else{
+
+   answer=
+   "Both sides are closed. Work the Bull.";
+
+ }
+
+ document.getElementById("cricketAdvice").textContent=answer;
+
+}
+
+
+/* -----------------------------
+   STATS
+----------------------------- */
+
+function renderStats(){
+
+ let visits=data.visits;
+
+ let average=visits.length?
+ visits.reduce((a,b)=>a+b,0)/visits.length:0;
+
+ document.getElementById("stats").innerHTML=`
+
+ <div class="card">
+
+ <h3>PLAYER PROFILE</h3>
+
+ <div class="grid">
+
+ <div>
+ <label>01 Average</label>
+ <b style="font-size:25px">${data.playerAvg}</b>
+ </div>
+
+ <div>
+ <label>Cricket</label>
+ <b style="font-size:25px">${data.cricketAvg}</b>
+ </div>
+
+ <div>
+ <label>Legs</label>
+ <b style="font-size:25px">${data.legs.length}</b>
+ </div>
+
+ <div>
+ <label>Visits</label>
+ <b style="font-size:25px">${visits.length}</b>
+ </div>
+
+ </div>
+
+ </div>
+
+
+ <div class="card">
+
+ <h3>SCORING</h3>
+
+ <div class="row">
+ <span>Average logged visit</span>
+ <b>${average.toFixed(1)}</b>
+ </div>
+
+ <div class="row">
+ <span>100+ visits</span>
+ <b>${visits.filter(x=>x>=100).length}</b>
+ </div>
+
+ <div class="row">
+ <span>140+ visits</span>
+ <b>${visits.filter(x=>x>=140).length}</b>
+ </div>
+
+ <div class="row">
+ <span>180s</span>
+ <b>${visits.filter(x=>x===180).length}</b>
+ </div>
+
+ </div>
+
+
+ <div class="card">
+
+ <h3>UPDATE YOUR BASELINES</h3>
+
+ <label>01 Average</label>
+
+ <input id="newAvg" type="number" step=".1" value="${data.playerAvg}">
+
+ <label>Cricket Average</label>
+
+ <input id="newCricket" type="number" step=".1" value="${data.cricketAvg}">
+
+ <button style="width:100%;margin-top:10px"
+ onclick="saveProfile()">
+
+ SAVE PROFILE
+
+ </button>
+
+ </div>
+
+
+ <div class="card">
+
+ <button class="bad" style="width:100%"
+ onclick="clearData()">
+
+ CLEAR ALL LOCAL DATA
+
+ </button>
+
+ </div>
+
+ `;
+}
+
+
+function saveProfile(){
+
+ data.playerAvg=
+ Number(document.getElementById("newAvg").value)||23;
+
+ data.cricketAvg=
+ Number(document.getElementById("newCricket").value)||2.4;
+
+ save();
+
+ renderStats();
+
+ alert("Profile saved.");
+
+}
+
+
+function clearData(){
+
+ if(confirm("Delete all New Breed Darts data?")){
+
+   localStorage.removeItem(KEY);
+
+   location.reload();
+
+ }
+
+}
+
+
+/* START */
+
+renderMatch();
+
+</script>
+</body>
+</html>
